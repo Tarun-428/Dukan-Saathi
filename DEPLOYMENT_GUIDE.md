@@ -262,8 +262,8 @@ docker-compose ps
 
 #### Step 2: Access Applications
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+- **Backend API**: https://dukan-saathi.onrender.com
+- **API Docs**: https://dukan-saathi.onrender.com/docs
 - **Nginx Reverse Proxy**: http://localhost:80
 - **MongoDB**: localhost:27017
 - **Redis**: localhost:6379
@@ -797,7 +797,7 @@ services:
     networks:
       - sathi-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "curl", "-f", "https://dukan-saathi.onrender.com/docs"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -1225,7 +1225,7 @@ python3 -c "import motor; print('Motor installed')"
 
 ```bash
 # Check CORS configuration
-curl -i http://localhost:8000/docs \
+curl -i https://dukan-saathi.onrender.com/docs \
   -H "Origin: http://localhost:5173"
 
 # Should see Access-Control-Allow-Origin header
@@ -1234,7 +1234,7 @@ curl -i http://localhost:8000/docs \
 cat frontend/.env.local | grep VITE_API_URL
 
 # Test API endpoint
-curl http://localhost:8000/api/v1/health
+curl https://dukan-saathi.onrender.com/api/v1/health
 ```
 
 #### 3. **SSL Certificate Not Working**
@@ -1293,7 +1293,7 @@ docker stats
 
 ```bash
 # Check backend is running
-curl http://localhost:8000
+curl https://dukan-saathi.onrender.com
 
 # Check Nginx error log
 sudo tail -f /var/log/nginx/error.log
@@ -1311,7 +1311,7 @@ sudo systemctl restart nginx
 # Check WebSocket endpoint
 curl -i -N -H "Connection: Upgrade" \
   -H "Upgrade: websocket" \
-  http://localhost:8000/api/v1/ws/tenant_id
+  https://dukan-saathi.onrender.com/api/v1/ws/tenant_id
 
 # Verify Nginx WebSocket configuration
 sudo cat /etc/nginx/sites-enabled/sathi | grep -A10 "location /api/v1/ws"

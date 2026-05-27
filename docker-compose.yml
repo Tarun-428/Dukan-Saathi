@@ -54,8 +54,8 @@ services:
     volumes:
       - ./frontend:/app
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
-      VITE_PUBLIC_API_URL: ${VITE_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      VITE_API_URL: https://dukan-saathi.onrender.com/api/v1
+      VITE_PUBLIC_API_URL: ${VITE_PUBLIC_API_URL:-https://dukan-saathi.onrender.com/api/v1}
 
   nginx:
     image: nginx:alpine

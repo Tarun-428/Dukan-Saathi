@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
 
+const apiBaseURL = import.meta.env.VITE_API_URL || 'https://dukan-saathi.onrender.com/api/v1'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
+  baseURL: apiBaseURL,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -25,7 +27,7 @@ api.interceptors.response.use(
       const refresh = useAuthStore.getState().refreshToken
       if (refresh) {
         try {
-          const { data } = await axios.post(`${import.meta.env.VITE_API_URL || '/api/v1'}/auth/refresh`, {
+          const { data } = await axios.post(`${apiBaseURL}/auth/refresh`, {
             refresh_token: refresh,
           })
           useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
