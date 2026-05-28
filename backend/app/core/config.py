@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = False
     SMTP_START_TLS: bool = True
 
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = ""
+
+    BREVO_API_KEY: str = ""
+    BREVO_FROM_EMAIL: str = ""
+    BREVO_FROM_NAME: str = "Sathi"
+
     REDIS_URL: str = "redis://localhost:6379/0"
 
     SUPER_ADMIN_EMAIL: str = "admin@sathi.app"
