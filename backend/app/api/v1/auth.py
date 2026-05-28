@@ -16,8 +16,8 @@ from app.schemas.auth import (
     VerifyOtpRequest,
 )
 from app.schemas.common import MessageResponse
-from app.services.email_service import EmailConfigurationError, EmailDeliveryError
 from app.services import auth_service
+from app.services.email_service import EmailConfigurationError, EmailDeliveryError
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -87,6 +87,8 @@ async def me(user: Annotated[dict, Depends(get_current_user)]):
 async def verify_otp(body: VerifyOtpRequest):
     try:
         await auth_service.verify_email_otp(body.email, body.otp)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     except ValueError as exc:
         code = status.HTTP_404_NOT_FOUND if str(exc) == "User not found" else status.HTTP_400_BAD_REQUEST
         raise HTTPException(code, str(exc))
@@ -97,6 +99,8 @@ async def verify_otp(body: VerifyOtpRequest):
 async def resend_verification_otp(body: ResendVerificationOtpRequest):
     try:
         await auth_service.create_email_verification_otp(body.email)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     except (EmailConfigurationError, EmailDeliveryError):
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Could not send verification email")
     return MessageResponse(message="If the email exists, a verification OTP has been sent")
@@ -106,6 +110,8 @@ async def resend_verification_otp(body: ResendVerificationOtpRequest):
 async def forgot_password(body: ForgotPasswordRequest):
     try:
         await auth_service.create_password_reset_otp(body.email)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     except EmailConfigurationError:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Password reset email is not configured")
     except EmailDeliveryError:
@@ -117,6 +123,8 @@ async def forgot_password(body: ForgotPasswordRequest):
 async def reset_password(body: ResetPasswordRequest):
     try:
         await auth_service.reset_password_with_otp(body.email, body.otp, body.password)
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     return MessageResponse(message="Password reset successful")

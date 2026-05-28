@@ -22,6 +22,105 @@ interface ProductRow {
   low_stock_threshold?: number
 }
 
+const UNIT_GROUPS = [
+  {
+    label: 'Count',
+    units: [
+      { value: 'piece', label: 'Piece' },
+      { value: 'pack', label: 'Pack' },
+      { value: 'box', label: 'Box' },
+      { value: 'dozen', label: 'Dozen' },
+      { value: 'pair', label: 'Pair' },
+      { value: 'set', label: 'Set' },
+      { value: 'bundle', label: 'Bundle' },
+    ],
+  },
+  {
+    label: 'Weight',
+    units: [
+      { value: 'kg', label: 'Kilogram' },
+      { value: 'g', label: 'Gram' },
+      { value: 'mg', label: 'Milligram' },
+      { value: 'quintal', label: 'Quintal' },
+      { value: 'ton', label: 'Ton' },
+    ],
+  },
+  {
+    label: 'Liquid',
+    units: [
+      { value: 'l', label: 'Liter' },
+      { value: 'ml', label: 'Milliliter' },
+      { value: 'bottle', label: 'Bottle' },
+      { value: 'can', label: 'Can' },
+      { value: 'jar', label: 'Jar' },
+      { value: 'pouch', label: 'Pouch' },
+      { value: 'sachet', label: 'Sachet' },
+    ],
+  },
+  {
+    label: 'Length & Area',
+    units: [
+      { value: 'm', label: 'Meter' },
+      { value: 'cm', label: 'Centimeter' },
+      { value: 'mm', label: 'Millimeter' },
+      { value: 'ft', label: 'Foot' },
+      { value: 'in', label: 'Inch' },
+      { value: 'sqft', label: 'Square foot' },
+      { value: 'sqm', label: 'Square meter' },
+    ],
+  },
+  {
+    label: 'Medical & Paper',
+    units: [
+      { value: 'strip', label: 'Strip' },
+      { value: 'tablet', label: 'Tablet' },
+      { value: 'roll', label: 'Roll' },
+      { value: 'sheet', label: 'Sheet' },
+      { value: 'ream', label: 'Ream' },
+      { value: 'bag', label: 'Bag' },
+    ],
+  },
+  {
+    label: 'Service',
+    units: [
+      { value: 'hour', label: 'Hour' },
+      { value: 'day', label: 'Day' },
+      { value: 'service', label: 'Service' },
+    ],
+  },
+]
+
+const UNIT_LABELS = UNIT_GROUPS.flatMap((group) => group.units).reduce<Record<string, string>>((acc, unit) => {
+  acc[unit.value] = unit.label
+  return acc
+}, {})
+
+function UnitSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-900/80"
+      >
+        {UNIT_GROUPS.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.units.map((unit) => (
+              <option key={unit.value} value={unit.value}>{unit.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function formatStock(quantity: number, unit?: string) {
+  const label = unit ? UNIT_LABELS[unit] || unit : 'Piece'
+  return `${quantity} ${label}`
+}
+
 export function InventoryPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -59,6 +158,7 @@ export function InventoryPage() {
         quantity: Number(editing.quantity),
         buying_price: Number(editing.buying_price),
         selling_price: Number(editing.selling_price),
+        unit: editing.unit || 'piece',
         tax_rate: Number(editing.tax_rate || 0),
         low_stock_threshold: Number(editing.low_stock_threshold || 5),
       })
@@ -97,11 +197,12 @@ export function InventoryPage() {
       </div>
 
       {showForm && (
-        <Card className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Selling price" type="number" value={form.selling_price} onChange={(e) => setForm({ ...form, selling_price: e.target.value })} />
           <Input label="Buying price" type="number" value={form.buying_price} onChange={(e) => setForm({ ...form, buying_price: e.target.value })} />
-          <Input label="Quantity" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          <Input label="Quantity" type="number" step="0.01" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          <UnitSelect label="Unit" value={form.unit} onChange={(unit) => setForm({ ...form, unit })} />
           <div className="flex items-end">
             <Button onClick={() => createProduct.mutate()} loading={createProduct.isPending} className="w-full" tooltip="Save this product to inventory and POS.">Save</Button>
           </div>
@@ -140,7 +241,7 @@ export function InventoryPage() {
                   <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800">
                     <td className="py-3 font-medium">{p.name}</td>
                     <td className="py-3 text-slate-500">{p.sku}</td>
-                    <td className={`py-3 ${p.quantity <= 5 ? 'text-amber-600 font-medium' : ''}`}>{p.quantity}</td>
+                    <td className={`py-3 ${p.quantity <= (p.low_stock_threshold || 5) ? 'text-amber-600 font-medium' : ''}`}>{formatStock(p.quantity, p.unit)}</td>
                     <td className="py-3">{formatCurrency(p.buying_price)}</td>
                     <td className="py-3">{formatCurrency(p.selling_price)}</td>
                     <td className="py-3">{p.profit_margin?.toFixed(1)}%</td>
@@ -190,7 +291,8 @@ export function InventoryPage() {
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Input label="Name" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-              <Input label="Current stock" type="number" value={String(editing.quantity)} onChange={(e) => setEditing({ ...editing, quantity: Number(e.target.value || 0) })} />
+              <Input label="Current stock" type="number" step="0.01" value={String(editing.quantity)} onChange={(e) => setEditing({ ...editing, quantity: Number(e.target.value || 0) })} />
+              <UnitSelect label="Unit" value={editing.unit || 'piece'} onChange={(unit) => setEditing({ ...editing, unit })} />
               <Input label="Buying price" type="number" value={String(editing.buying_price)} onChange={(e) => setEditing({ ...editing, buying_price: Number(e.target.value || 0) })} />
               <Input label="Selling price" type="number" value={String(editing.selling_price)} onChange={(e) => setEditing({ ...editing, selling_price: Number(e.target.value || 0) })} />
               <Input label="Tax %" type="number" value={String(editing.tax_rate || 0)} onChange={(e) => setEditing({ ...editing, tax_rate: Number(e.target.value || 0) })} />

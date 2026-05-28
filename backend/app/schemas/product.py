@@ -1,7 +1,19 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+ALLOWED_PRODUCT_UNITS = {
+    "piece", "pack", "box", "dozen", "pair", "set", "bundle",
+    "kg", "g", "mg", "quintal", "ton",
+    "l", "ml",
+    "m", "cm", "mm", "ft", "in",
+    "sqft", "sqm",
+    "bottle", "can", "jar", "pouch", "bag", "sachet", "strip", "tablet",
+    "roll", "sheet", "ream",
+    "hour", "day", "service",
+}
 
 
 class ProductVariant(BaseModel):
@@ -33,6 +45,14 @@ class ProductCreate(BaseModel):
     custom_attributes: Dict[str, Any] = {}
     low_stock_threshold: float = 5
 
+    @field_validator("unit")
+    @classmethod
+    def validate_unit(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_PRODUCT_UNITS:
+            raise ValueError("Unsupported product unit")
+        return normalized
+
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -48,6 +68,16 @@ class ProductUpdate(BaseModel):
     expiry_date: Optional[datetime] = None
     low_stock_threshold: Optional[float] = None
     is_active: Optional[bool] = None
+
+    @field_validator("unit")
+    @classmethod
+    def validate_unit(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_PRODUCT_UNITS:
+            raise ValueError("Unsupported product unit")
+        return normalized
 
 
 class ProductResponse(BaseModel):

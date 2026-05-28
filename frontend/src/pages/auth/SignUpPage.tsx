@@ -67,8 +67,8 @@ export function SignUpPage() {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       })
       setAuth(user, tokens.access_token, tokens.refresh_token)
-      toast.success('Shop created. Check your email for the OTP.')
-      navigate(user.is_verified ? '/onboarding' : '/verify-email')
+      toast.success('Shop created! Complete setup.')
+      navigate('/onboarding')
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       toast.error(typeof msg === 'string' ? msg : 'Signup failed')

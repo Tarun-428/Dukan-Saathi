@@ -29,8 +29,9 @@ export function ForgotPasswordPage() {
       await api.post('/auth/forgot-password', { email: email.trim() })
       toast.success('OTP sent. Check your email.')
       setStep('reset')
-    } catch {
-      toast.error('Could not send OTP')
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(detail || 'Could not send OTP')
     } finally {
       setLoading(false)
     }

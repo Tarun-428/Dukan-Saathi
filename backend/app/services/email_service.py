@@ -1,8 +1,13 @@
 from email.message import EmailMessage
+import asyncio
+import base64
 import logging
 
 import aiosmtplib
 import httpx
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from app.core.config import settings
 
@@ -18,6 +23,10 @@ class EmailDeliveryError(RuntimeError):
 
 
 async def send_email(*, to_email: str, subject: str, html: str, text: str) -> None:
+    if settings.GMAIL_CLIENT_ID and settings.GMAIL_CLIENT_SECRET and settings.GMAIL_REFRESH_TOKEN:
+        await _send_email_via_gmail_api(to_email=to_email, subject=subject, html=html, text=text)
+        return
+
     if settings.RESEND_API_KEY:
         await _send_email_via_resend(to_email=to_email, subject=subject, html=html, text=text)
         return
@@ -82,6 +91,44 @@ async def _send_email_via_resend(*, to_email: str, subject: str, html: str, text
     except httpx.HTTPError as exc:
         logger.warning("Resend connection failed for %s: %s", to_email, exc)
         raise EmailDeliveryError("Could not connect to email provider") from exc
+
+
+async def _send_email_via_gmail_api(*, to_email: str, subject: str, html: str, text: str) -> None:
+    sender_email = settings.GMAIL_SENDER_EMAIL or settings.SMTP_FROM or settings.SMTP_USER
+    if not sender_email:
+        raise EmailConfigurationError("Gmail sender email is not configured")
+
+    message = EmailMessage()
+    message["From"] = sender_email
+    message["To"] = to_email
+    message["Subject"] = subject
+    message.set_content(text)
+    message.add_alternative(html, subtype="html")
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+    def send_message() -> None:
+        creds = Credentials(
+            token=None,
+            refresh_token=settings.GMAIL_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GMAIL_CLIENT_ID,
+            client_secret=settings.GMAIL_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/gmail.send"],
+        )
+        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        service.users().messages().send(userId="me", body={"raw": raw_message}).execute()
+
+    try:
+        await asyncio.wait_for(asyncio.to_thread(send_message), timeout=settings.SMTP_TIMEOUT_SECONDS)
+    except HttpError as exc:
+        logger.warning("Gmail API delivery failed for %s: %s", to_email, exc)
+        raise EmailDeliveryError("Could not deliver email") from exc
+    except TimeoutError as exc:
+        logger.warning("Gmail API delivery timed out for %s", to_email)
+        raise EmailDeliveryError("Could not connect to Gmail API") from exc
+    except Exception as exc:
+        logger.warning("Gmail API delivery failed for %s: %s", to_email, exc)
+        raise EmailDeliveryError("Could not deliver email") from exc
 
 
 async def send_email_verification_email(*, to_email: str, otp: str) -> None:

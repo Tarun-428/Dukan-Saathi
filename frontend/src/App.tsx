@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
@@ -29,22 +29,12 @@ const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, ret
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
-  const user = useAuthStore((s) => s.user)
-  const location = useLocation()
-  const needsEmailVerification = user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)
-  if (!isAuth) return <Navigate to="/" replace />
-  if (needsEmailVerification && location.pathname !== '/verify-email') {
-    return <Navigate to="/verify-email" replace />
-  }
-  return <>{children}</>
+  return isAuth ? <>{children}</> : <Navigate to="/" replace />
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
   const user = useAuthStore((s) => s.user)
-  if (isAuth && user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)) {
-    return <Navigate to="/verify-email" replace />
-  }
   const home = user?.role === 'super_admin' || user?.role === 'admin' ? '/admin' : '/dashboard'
   return isAuth ? <Navigate to={home} replace /> : <>{children}</>
 }
@@ -52,9 +42,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function HomeRoute() {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
   const user = useAuthStore((s) => s.user)
-  if (isAuth && user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)) {
-    return <Navigate to="/verify-email" replace />
-  }
   const home = user?.role === 'super_admin' || user?.role === 'admin' ? '/admin' : '/dashboard'
   return isAuth ? <Navigate to={home} replace /> : <LandingPage />
 }

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.permissions import ROLE_PERMISSIONS, Role
 from app.core.security import (
@@ -100,7 +101,7 @@ async def register_user(
     await db.shops.insert_one(shop_doc)
 
     user_id = ObjectId()
-    otp = secrets.randbelow(900000) + 100000
+    otp = str(secrets.randbelow(900000) + 100000)
     user_doc = {
         "_id": user_id,
         "email": email.lower(),
@@ -110,13 +111,14 @@ async def register_user(
         "role": Role.OWNER.value,
         "tenant_id": tenant_id,
         "is_active": True,
-        "is_verified": False,
-        "otp": str(otp),
-        "otp_expires": now + timedelta(minutes=15),
+        "is_verified": not settings.EMAIL_AUTH_OTP_ENABLED,
         "refresh_tokens": [],
         "created_at": now,
         "updated_at": now,
     }
+    if settings.EMAIL_AUTH_OTP_ENABLED:
+        user_doc["otp"] = otp
+        user_doc["otp_expires"] = now + timedelta(minutes=15)
     await db.users.insert_one(user_doc)
     await create_pending_subscription(tenant_id, str(user_id))
     await db.notifications.insert_one({
@@ -129,7 +131,8 @@ async def register_user(
         "read": False,
         "created_at": now,
     })
-    await send_email_verification_email(to_email=user_doc["email"], otp=str(otp))
+    if settings.EMAIL_AUTH_OTP_ENABLED:
+        await send_email_verification_email(to_email=user_doc["email"], otp=otp)
 
     return serialize_doc(user_doc), serialize_doc(shop_doc), str(otp)
 
@@ -197,6 +200,8 @@ async def refresh_access_token(refresh_token: str) -> tuple[str, str]:
 
 
 async def create_password_reset_otp(email: str) -> bool:
+    if not settings.EMAIL_AUTH_OTP_ENABLED:
+        raise RuntimeError("Password reset is temporarily unavailable")
     db = get_db()
     user = await db.users.find_one({"email": email.lower()})
     if not user:
@@ -218,6 +223,8 @@ async def create_password_reset_otp(email: str) -> bool:
 
 
 async def create_email_verification_otp(email: str) -> bool:
+    if not settings.EMAIL_AUTH_OTP_ENABLED:
+        raise RuntimeError("Email verification is temporarily unavailable")
     db = get_db()
     user = await db.users.find_one({"email": email.lower()})
     if not user:
@@ -241,6 +248,8 @@ async def create_email_verification_otp(email: str) -> bool:
 
 
 async def verify_email_otp(email: str, otp: str) -> None:
+    if not settings.EMAIL_AUTH_OTP_ENABLED:
+        raise RuntimeError("Email verification is temporarily unavailable")
     db = get_db()
     user = await db.users.find_one({"email": email.lower()})
     if not user:
@@ -259,6 +268,8 @@ async def verify_email_otp(email: str, otp: str) -> None:
 
 
 async def reset_password_with_otp(email: str, otp: str, password: str) -> None:
+    if not settings.EMAIL_AUTH_OTP_ENABLED:
+        raise RuntimeError("Password reset is temporarily unavailable")
     db = get_db()
     user = await db.users.find_one({"email": email.lower()})
     if not user:

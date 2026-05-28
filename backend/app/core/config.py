@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     ]
 
     RATE_LIMIT: str = "100/minute"
+    EMAIL_AUTH_OTP_ENABLED: bool = False
 
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
@@ -42,6 +43,11 @@ class Settings(BaseSettings):
 
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
+
+    GMAIL_CLIENT_ID: str = ""
+    GMAIL_CLIENT_SECRET: str = ""
+    GMAIL_REFRESH_TOKEN: str = ""
+    GMAIL_SENDER_EMAIL: str = ""
 
     REDIS_URL: str = "redis://localhost:6379/0"
 
