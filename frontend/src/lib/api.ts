@@ -1,7 +1,12 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
 
-const apiBaseURL = import.meta.env.VITE_API_URL || 'https://dukan-saathi.onrender.com/api/v1'
+const defaultApiBaseURL = 'https://dukan-saathi.onrender.com/api/v1'
+const envApiBaseURL = import.meta.env.VITE_API_URL?.trim()
+const apiBaseURL =
+  import.meta.env.PROD && envApiBaseURL && /^https?:\/\/(localhost|127(?:\.\d{1,3}){3})(:\d+)?\/?/i.test(envApiBaseURL)
+    ? defaultApiBaseURL
+    : envApiBaseURL || defaultApiBaseURL
 
 const api = axios.create({
   baseURL: apiBaseURL,

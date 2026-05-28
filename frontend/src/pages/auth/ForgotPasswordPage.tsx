@@ -27,7 +27,7 @@ export function ForgotPasswordPage() {
     setLoading(true)
     try {
       await api.post('/auth/forgot-password', { email: email.trim() })
-      toast.success('OTP sent. Check the backend console for now.')
+      toast.success('OTP sent. Check your email.')
       setStep('reset')
     } catch {
       toast.error('Could not send OTP')
@@ -68,13 +68,13 @@ export function ForgotPasswordPage() {
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <h1 className="text-3xl font-bold">Reset password</h1>
         <p className="mt-2 text-slate-500">
-          {step === 'email' ? 'Enter your account email to receive a verification OTP.' : 'Enter the console OTP and choose a new password.'}
+          {step === 'email' ? 'Enter your account email to receive a verification OTP.' : 'Enter the email OTP and choose a new password.'}
         </p>
 
         {step === 'email' ? (
           <form onSubmit={requestOtp} className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-6 dark:border-slate-800 dark:bg-slate-900/70">
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Button type="submit" className="w-full" loading={loading} tooltip="Send a password reset OTP to the backend console.">Send OTP</Button>
+            <Button type="submit" className="w-full" loading={loading} tooltip="Send a password reset OTP to your email.">Send OTP</Button>
           </form>
         ) : (
           <form onSubmit={resetPassword} className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-6 dark:border-slate-800 dark:bg-slate-900/70">

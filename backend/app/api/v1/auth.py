@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import get_current_user
 from app.schemas.auth import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
     RefreshRequest,
+    ResendVerificationOtpRequest,
     ResetPasswordRequest,
     SignUpRequest,
     TokenResponse,
@@ -14,6 +16,7 @@ from app.schemas.auth import (
     VerifyOtpRequest,
 )
 from app.schemas.common import MessageResponse
+from app.services.email_service import EmailConfigurationError, EmailDeliveryError
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -41,6 +44,8 @@ async def signup(body: SignUpRequest):
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    except (EmailConfigurationError, EmailDeliveryError):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Could not send verification email")
     _, access, refresh = await auth_service.login_user(body.email, body.password)
     return TokenResponse(access_token=access, refresh_token=refresh)
 
@@ -80,27 +85,31 @@ async def me(user: Annotated[dict, Depends(get_current_user)]):
 
 @router.post("/verify-otp", response_model=MessageResponse)
 async def verify_otp(body: VerifyOtpRequest):
-    from app.core.database import get_db
-    from app.models.base import utc_now
-
-    db = get_db()
-    user = await db.users.find_one({"email": body.email.lower()})
-    if not user:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    if user.get("otp") != body.otp:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid OTP")
-    if user.get("otp_expires") and user["otp_expires"] < utc_now():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "OTP expired")
-    await db.users.update_one(
-        {"_id": user["_id"]},
-        {"$set": {"is_verified": True}, "$unset": {"otp": "", "otp_expires": ""}},
-    )
+    try:
+        await auth_service.verify_email_otp(body.email, body.otp)
+    except ValueError as exc:
+        code = status.HTTP_404_NOT_FOUND if str(exc) == "User not found" else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(code, str(exc))
     return MessageResponse(message="Email verified successfully")
+
+
+@router.post("/resend-verification-otp", response_model=MessageResponse)
+async def resend_verification_otp(body: ResendVerificationOtpRequest):
+    try:
+        await auth_service.create_email_verification_otp(body.email)
+    except (EmailConfigurationError, EmailDeliveryError):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Could not send verification email")
+    return MessageResponse(message="If the email exists, a verification OTP has been sent")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(body: ForgotPasswordRequest):
-    await auth_service.create_password_reset_otp(body.email)
+    try:
+        await auth_service.create_password_reset_otp(body.email)
+    except EmailConfigurationError:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Password reset email is not configured")
+    except EmailDeliveryError:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Could not send password reset email")
     return MessageResponse(message="If the email exists, an OTP has been sent")
 
 
@@ -111,3 +120,12 @@ async def reset_password(body: ResetPasswordRequest):
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     return MessageResponse(message="Password reset successful")
+
+
+@router.post("/change-password", response_model=MessageResponse)
+async def change_password(body: ChangePasswordRequest, user: Annotated[dict, Depends(get_current_user)]):
+    try:
+        await auth_service.change_password(user["id"], body.current_password, body.new_password)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    return MessageResponse(message="Password changed successfully")

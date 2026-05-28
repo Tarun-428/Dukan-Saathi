@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "noreply@sathi.app"
+    SMTP_TIMEOUT_SECONDS: float = 12
+    SMTP_USE_TLS: bool = False
+    SMTP_START_TLS: bool = True
 
     REDIS_URL: str = "redis://localhost:6379/0"
 

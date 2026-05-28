@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.permissions import ROLE_PERMISSIONS, Role
 from app.core.security import (
@@ -13,7 +12,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.base import new_id, serialize_doc, utc_now
-from app.services.email_service import EmailConfigurationError, send_password_reset_email
+from app.services.email_service import send_email_verification_email, send_password_reset_email
 from app.services.subscription_service import create_pending_subscription, log_activity
 
 
@@ -130,6 +129,7 @@ async def register_user(
         "read": False,
         "created_at": now,
     })
+    await send_email_verification_email(to_email=user_doc["email"], otp=str(otp))
 
     return serialize_doc(user_doc), serialize_doc(shop_doc), str(otp)
 
@@ -213,13 +213,49 @@ async def create_password_reset_otp(email: str) -> bool:
             }
         },
     )
-    try:
-        await send_password_reset_email(to_email=user["email"], otp=otp)
-    except EmailConfigurationError:
-        raise ValueError("Password reset email is not configured")
-    except Exception as exc:
-        raise ValueError("Could not send password reset email") from exc
+    await send_password_reset_email(to_email=user["email"], otp=otp)
     return True
+
+
+async def create_email_verification_otp(email: str) -> bool:
+    db = get_db()
+    user = await db.users.find_one({"email": email.lower()})
+    if not user:
+        return False
+    if user.get("is_verified"):
+        return True
+    now = utc_now()
+    otp = str(secrets.randbelow(900000) + 100000)
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "otp": otp,
+                "otp_expires": now + timedelta(minutes=15),
+                "updated_at": now,
+            }
+        },
+    )
+    await send_email_verification_email(to_email=user["email"], otp=otp)
+    return True
+
+
+async def verify_email_otp(email: str, otp: str) -> None:
+    db = get_db()
+    user = await db.users.find_one({"email": email.lower()})
+    if not user:
+        raise ValueError("User not found")
+    if user.get("is_verified"):
+        return
+    if user.get("otp") != otp:
+        raise ValueError("Invalid OTP")
+    expires_at = _as_aware_utc(user.get("otp_expires"))
+    if expires_at and expires_at < utc_now():
+        raise ValueError("OTP expired")
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"is_verified": True, "updated_at": utc_now()}, "$unset": {"otp": "", "otp_expires": ""}},
+    )
 
 
 async def reset_password_with_otp(email: str, otp: str, password: str) -> None:
@@ -237,6 +273,21 @@ async def reset_password_with_otp(email: str, otp: str, password: str) -> None:
         {
             "$set": {"password_hash": hash_password(password), "refresh_tokens": [], "updated_at": utc_now()},
             "$unset": {"password_reset_otp": "", "password_reset_otp_expires": ""},
+        },
+    )
+
+
+async def change_password(user_id: str, current_password: str, new_password: str) -> None:
+    db = get_db()
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or not verify_password(current_password, user["password_hash"]):
+        raise ValueError("Current password is incorrect")
+    if verify_password(new_password, user["password_hash"]):
+        raise ValueError("New password must be different from current password")
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {"password_hash": hash_password(new_password), "refresh_tokens": [], "updated_at": utc_now()},
         },
     )
 

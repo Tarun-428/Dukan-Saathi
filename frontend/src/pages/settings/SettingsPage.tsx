@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Save, Store } from 'lucide-react'
+import { KeyRound, Save, Store } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { PasswordField } from '@/components/auth/PasswordField'
 
 interface ShopForm {
   name: string
@@ -63,6 +64,8 @@ const emptyForm: ShopForm = {
 export function SettingsPage() {
   const qc = useQueryClient()
   const [form, setForm] = useState<ShopForm>(emptyForm)
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
+  const [passwordVisible, setPasswordVisible] = useState({ current: false, next: false, confirm: false })
 
   const { data, isLoading } = useQuery({
     queryKey: ['shop'],
@@ -140,6 +143,33 @@ export function SettingsPage() {
     },
     onError: () => toast.error('Could not update shop details'),
   })
+
+  const changePassword = useMutation({
+    mutationFn: () => api.post('/auth/change-password', {
+      current_password: passwordForm.current,
+      new_password: passwordForm.next,
+    }),
+    onSuccess: () => {
+      toast.success('Password changed')
+      setPasswordForm({ current: '', next: '', confirm: '' })
+    },
+    onError: (error: unknown) => {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast.error(detail || 'Could not change password')
+    },
+  })
+
+  const submitPasswordChange = () => {
+    if (passwordForm.next.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
+    if (passwordForm.next !== passwordForm.confirm) {
+      toast.error('Passwords do not match')
+      return
+    }
+    changePassword.mutate()
+  }
 
   const handleLogo = (file?: File) => {
     if (!file) return
@@ -253,31 +283,66 @@ export function SettingsPage() {
           </Card>
         </div>
 
-        <Card className="h-fit">
-          <h3 className="mb-4 font-semibold">Branding</h3>
-          <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
-              {form.logo_url ? <img src={form.logo_url} alt="Shop logo" className="h-full w-full object-cover" /> : <Store className="h-8 w-8" />}
+        <div className="space-y-6">
+          <Card className="h-fit">
+            <h3 className="mb-4 font-semibold">Branding</h3>
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+                {form.logo_url ? <img src={form.logo_url} alt="Shop logo" className="h-full w-full object-cover" /> : <Store className="h-8 w-8" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={(e) => handleLogo(e.target.files?.[0])}
+                  className="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-600"
+                />
+                {form.logo_url && (
+                  <button className="mt-2 text-xs text-red-500" onClick={() => setForm({ ...form, logo_url: '' })} title="Remove the logo from future invoices.">
+                    Remove logo
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                onChange={(e) => handleLogo(e.target.files?.[0])}
-                className="block w-full text-sm text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-600"
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <Input label="Primary color" type="color" value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} />
+              <Input label="Accent color" type="color" value={form.accent_color} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} />
+            </div>
+          </Card>
+
+          <Card className="h-fit">
+            <div className="mb-4 flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-indigo-500" />
+              <h3 className="font-semibold">Change Password</h3>
+            </div>
+            <div className="space-y-4">
+              <PasswordField
+                label="Current password"
+                value={passwordForm.current}
+                visible={passwordVisible.current}
+                onToggle={() => setPasswordVisible((prev) => ({ ...prev, current: !prev.current }))}
+                onChange={(value) => setPasswordForm((prev) => ({ ...prev, current: value }))}
               />
-              {form.logo_url && (
-                <button className="mt-2 text-xs text-red-500" onClick={() => setForm({ ...form, logo_url: '' })} title="Remove the logo from future invoices.">
-                  Remove logo
-                </button>
-              )}
+              <PasswordField
+                label="New password"
+                value={passwordForm.next}
+                visible={passwordVisible.next}
+                onToggle={() => setPasswordVisible((prev) => ({ ...prev, next: !prev.next }))}
+                onChange={(value) => setPasswordForm((prev) => ({ ...prev, next: value }))}
+              />
+              <PasswordField
+                label="Confirm password"
+                value={passwordForm.confirm}
+                visible={passwordVisible.confirm}
+                onToggle={() => setPasswordVisible((prev) => ({ ...prev, confirm: !prev.confirm }))}
+                onChange={(value) => setPasswordForm((prev) => ({ ...prev, confirm: value }))}
+              />
+              <Button className="w-full" loading={changePassword.isPending} onClick={submitPasswordChange} tooltip="Update your login password.">
+                <KeyRound className="h-4 w-4" /> Update Password
+              </Button>
             </div>
-          </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            <Input label="Primary color" type="color" value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} />
-            <Input label="Accent color" type="color" value={form.accent_color} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} />
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   )

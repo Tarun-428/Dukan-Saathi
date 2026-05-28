@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })))
 const SignUpPage = lazy(() => import('@/pages/auth/SignUpPage').then((m) => ({ default: m.SignUpPage })))
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const POSPage = lazy(() => import('@/pages/pos/POSPage').then((m) => ({ default: m.POSPage })))
@@ -28,12 +29,22 @@ const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, ret
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
-  return isAuth ? <>{children}</> : <Navigate to="/" replace />
+  const user = useAuthStore((s) => s.user)
+  const location = useLocation()
+  const needsEmailVerification = user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)
+  if (!isAuth) return <Navigate to="/" replace />
+  if (needsEmailVerification && location.pathname !== '/verify-email') {
+    return <Navigate to="/verify-email" replace />
+  }
+  return <>{children}</>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
   const user = useAuthStore((s) => s.user)
+  if (isAuth && user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)) {
+    return <Navigate to="/verify-email" replace />
+  }
   const home = user?.role === 'super_admin' || user?.role === 'admin' ? '/admin' : '/dashboard'
   return isAuth ? <Navigate to={home} replace /> : <>{children}</>
 }
@@ -41,6 +52,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function HomeRoute() {
   const isAuth = useAuthStore((s) => s.isAuthenticated())
   const user = useAuthStore((s) => s.user)
+  if (isAuth && user && !user.is_verified && !['admin', 'super_admin'].includes(user.role)) {
+    return <Navigate to="/verify-email" replace />
+  }
   const home = user?.role === 'super_admin' || user?.role === 'admin' ? '/admin' : '/dashboard'
   return isAuth ? <Navigate to={home} replace /> : <LandingPage />
 }
@@ -69,6 +83,7 @@ export default function App() {
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
             <Route path="/signup" element={<PublicRoute><SignUpPage /></PublicRoute>} />
+            <Route path="/verify-email" element={<ProtectedRoute><VerifyEmailPage /></ProtectedRoute>} />
             <Route path="/" element={<HomeRoute />} />
             <Route path="/bill/:invoiceId" element={<PublicBillPage />} />
             <Route path="/subscribe" element={<ProtectedRoute><SubscribePage /></ProtectedRoute>} />

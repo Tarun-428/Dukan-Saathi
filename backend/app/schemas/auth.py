@@ -40,6 +40,15 @@ class ResetPasswordRequest(BaseModel):
     password: str = Field(min_length=8)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8)
+
+
+class ResendVerificationOtpRequest(BaseModel):
+    email: EmailStr
+
+
 class VerifyOtpRequest(BaseModel):
     email: EmailStr
     otp: str = Field(min_length=4, max_length=8)
