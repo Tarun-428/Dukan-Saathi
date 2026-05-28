@@ -18,10 +18,6 @@ class EmailDeliveryError(RuntimeError):
 
 
 async def send_email(*, to_email: str, subject: str, html: str, text: str) -> None:
-    if settings.BREVO_API_KEY:
-        await _send_email_via_brevo(to_email=to_email, subject=subject, html=html, text=text)
-        return
-
     if settings.RESEND_API_KEY:
         await _send_email_via_resend(to_email=to_email, subject=subject, html=html, text=text)
         return
@@ -85,37 +81,6 @@ async def _send_email_via_resend(*, to_email: str, subject: str, html: str, text
         raise EmailDeliveryError("Could not deliver email") from exc
     except httpx.HTTPError as exc:
         logger.warning("Resend connection failed for %s: %s", to_email, exc)
-        raise EmailDeliveryError("Could not connect to email provider") from exc
-
-
-async def _send_email_via_brevo(*, to_email: str, subject: str, html: str, text: str) -> None:
-    from_email = settings.BREVO_FROM_EMAIL or settings.SMTP_FROM or settings.SMTP_USER
-    if not from_email:
-        raise EmailConfigurationError("Email sender is not configured")
-
-    try:
-        async with httpx.AsyncClient(timeout=settings.SMTP_TIMEOUT_SECONDS) as client:
-            response = await client.post(
-                "https://api.brevo.com/v3/smtp/email",
-                headers={
-                    "api-key": settings.BREVO_API_KEY,
-                    "accept": "application/json",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "sender": {"name": settings.BREVO_FROM_NAME, "email": from_email},
-                    "to": [{"email": to_email}],
-                    "subject": subject,
-                    "htmlContent": html,
-                    "textContent": text,
-                },
-            )
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        logger.warning("Brevo delivery failed for %s: %s", to_email, exc.response.text)
-        raise EmailDeliveryError("Could not deliver email") from exc
-    except httpx.HTTPError as exc:
-        logger.warning("Brevo connection failed for %s: %s", to_email, exc)
         raise EmailDeliveryError("Could not connect to email provider") from exc
 
 
