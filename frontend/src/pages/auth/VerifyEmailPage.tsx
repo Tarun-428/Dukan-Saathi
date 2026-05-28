@@ -11,6 +11,7 @@ export function VerifyEmailPage() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
+  const logout = useAuthStore((s) => s.logout)
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
@@ -51,6 +52,11 @@ export function VerifyEmailPage() {
     }
   }
 
+  const leaveVerification = (path: '/login' | '/signup') => {
+    logout()
+    navigate(path, { replace: true })
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center px-6">
       <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
@@ -64,6 +70,15 @@ export function VerifyEmailPage() {
             Resend OTP
           </Button>
         </form>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-slate-500">
+          <button type="button" onClick={() => leaveVerification('/login')} className="font-medium text-indigo-600 hover:underline">
+            Back to login
+          </button>
+          <span aria-hidden="true">/</span>
+          <button type="button" onClick={() => leaveVerification('/signup')} className="font-medium text-indigo-600 hover:underline">
+            Create another account
+          </button>
+        </div>
       </motion.div>
     </div>
   )
