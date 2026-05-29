@@ -326,7 +326,7 @@ export function AdminPage() {
                   onChange={(e) => setPlanForm({ ...planForm, is_single_subscribe: e.target.checked })}
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
-                Allow only one subscription per shop
+                Single subscribe (one subscription per shop)
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Products" type="number" value={planForm.products} onChange={(e) => setPlanForm({ ...planForm, products: e.target.value })} />
