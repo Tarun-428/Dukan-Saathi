@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, Package, ShoppingCart, Users,
-  BarChart3, Settings, Shield, Receipt, Wallet,
+  BarChart3, Settings, Shield, Receipt, Wallet, BadgeIndianRupee,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -15,6 +15,7 @@ const nav = [
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/expenses', icon: Wallet, label: 'Expenses' },
   { to: '/reports', icon: BarChart3, label: 'Reports' },
+  { to: '/plan', icon: BadgeIndianRupee, label: 'Plan' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 

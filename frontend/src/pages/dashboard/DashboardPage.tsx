@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
-  TrendingUp, Package, AlertTriangle, Users, CreditCard, ShoppingBag, CalendarClock, ShieldCheck,
+  TrendingUp, Package, AlertTriangle, Users, CreditCard, ShoppingBag,
 } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,7 +10,7 @@ import {
 import api from '@/lib/api'
 import { Card } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { formatCurrency, formatISTDateTime, formatNumber, parseBackendDate } from '@/lib/utils'
+import { formatCurrency, formatISTDateTime, formatNumber } from '@/lib/utils'
 
 interface DashboardStats {
   today_sales: number
@@ -22,38 +22,6 @@ interface DashboardStats {
   customer_count: number
   recent_transactions: { id: string; invoice_number: string; grand_total: number; created_at: string }[]
   top_products: { name: string; quantity: number; revenue: number }[]
-}
-
-interface SubscriptionDetails {
-  id?: string
-  plan_name?: string
-  plan_code?: string
-  status?: string
-  starts_at?: string
-  expires_at?: string | null
-  renews_at?: string | null
-  grace_until?: string | null
-  auto_renew?: boolean
-  payment_status?: string
-  plan?: {
-    name?: string
-    code?: string
-    price?: number
-    currency?: string
-    duration_days?: number
-    duration_minutes?: number
-    plan_type?: string
-    features?: string[]
-    limits?: Record<string, number | boolean | string | null>
-  } | null
-  latest_payment?: {
-    amount?: number
-    currency?: string
-    status?: string
-    provider?: string
-    created_at?: string
-    verified_at?: string
-  } | null
 }
 
 const statCards = [
@@ -74,44 +42,13 @@ function currencyTooltip(value: unknown) {
   return formatCurrency(Number(value || 0))
 }
 
-function formatDate(value?: string | null) {
-  return value ? formatISTDateTime(value, true) : 'Lifetime'
-}
-
-function daysRemaining(value?: string | null) {
-  if (!value) return 'No expiry'
-  const diff = parseBackendDate(value).getTime() - Date.now()
-  const days = Math.ceil(diff / 86_400_000)
-  if (days < 0) return 'Expired'
-  if (days === 0) return 'Expires today'
-  return `${days} day${days === 1 ? '' : 's'} left`
-}
-
-function planDuration(plan?: SubscriptionDetails['plan']) {
-  if (plan?.duration_minutes) return `${plan.duration_minutes} minutes`
-  if (plan?.plan_type === 'lifetime') return 'Lifetime'
-  return plan?.duration_days ? `${plan.duration_days} days` : 'Lifetime'
-}
-
 export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => (await api.get<DashboardStats>('/billing/dashboard')).data,
     refetchInterval: 30000,
   })
-  const subscription = useQuery({
-    queryKey: ['subscription-current'],
-    queryFn: async () => (await api.get<SubscriptionDetails>('/subscriptions/me')).data,
-    refetchInterval: 60000,
-  })
-
   const chartData = data?.top_products?.map((p) => ({ name: p.name.slice(0, 12), revenue: p.revenue })) || []
-  const subscriptionData = subscription.data
-  const plan = subscriptionData?.plan
-  const limits = plan?.limits || {}
-  const latestPayment = subscriptionData?.latest_payment
-  const subscriptionStatus = subscriptionData?.status || 'pending'
-  const paymentStatus = latestPayment?.status || subscriptionData?.payment_status || 'unpaid'
   const revenueTrend = [
     { day: 'Mon', sales: (data?.today_sales || 0) * 0.6 },
     { day: 'Tue', sales: (data?.today_sales || 0) * 0.8 },
@@ -150,44 +87,6 @@ export function DashboardPage() {
           </Card>
         ))}
       </div>
-
-      <Card delay={0.08}>
-        {subscription.isLoading ? (
-          <Skeleton className="h-36 w-full" />
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr_1fr]">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-300">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Subscription</span>
-              </div>
-              <h3 className="mt-2 text-2xl font-bold">{subscriptionData?.plan_name || plan?.name || 'No active plan'}</h3>
-              <p className="mt-1 text-sm capitalize text-slate-500">
-                {plan?.plan_type || subscriptionData?.plan_code || 'Plan'} · {subscriptionStatus.replace(/_/g, ' ')}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-lg bg-emerald-50 px-2 py-1 font-medium capitalize text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{subscriptionStatus}</span>
-                <span className="rounded-lg bg-slate-100 px-2 py-1 font-medium capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">{paymentStatus}</span>
-                <span className="rounded-lg bg-amber-50 px-2 py-1 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{daysRemaining(subscriptionData?.expires_at)}</span>
-              </div>
-            </div>
-
-            <div className="grid gap-3 text-sm">
-              <SubscriptionRow label="Started" value={formatDate(subscriptionData?.starts_at)} />
-              <SubscriptionRow label="Expires" value={formatDate(subscriptionData?.expires_at)} highlight />
-              <SubscriptionRow label="Access ends" value={formatDate(subscriptionData?.expires_at)} />
-              <SubscriptionRow label="Auto renew" value={subscriptionData?.auto_renew ? 'Enabled' : 'Disabled'} />
-            </div>
-
-            <div className="grid gap-3 text-sm">
-              <SubscriptionRow label="Plan price" value={formatCurrency(Number(plan?.price || latestPayment?.amount || 0), plan?.currency || latestPayment?.currency || 'INR')} />
-              <SubscriptionRow label="Duration" value={planDuration(plan)} />
-              <SubscriptionRow label="Products limit" value={limits.products === undefined || limits.products === -1 ? 'Unlimited' : formatNumber(Number(limits.products || 0))} />
-              <SubscriptionRow label="Invoices/month" value={limits.monthly_invoices === undefined || limits.monthly_invoices === -1 ? 'Unlimited' : formatNumber(Number(limits.monthly_invoices || 0))} />
-            </div>
-          </div>
-        )}
-      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -266,18 +165,6 @@ export function DashboardPage() {
           </table>
         </div>
       </Card>
-    </div>
-  )
-}
-
-function SubscriptionRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800">
-      <span className="flex items-center gap-2 text-slate-500">
-        {highlight && <CalendarClock className="h-4 w-4 text-amber-500" />}
-        {label}
-      </span>
-      <strong className="text-right">{value}</strong>
     </div>
   )
 }

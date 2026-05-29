@@ -59,10 +59,10 @@ export function SubscribePage() {
 
   const checkout = useMutation({
     mutationFn: async (plan: Plan) => {
-      const loaded = await loadRazorpayScript()
-      if (!loaded || !window.Razorpay) throw new Error('Could not load Razorpay checkout')
       const { data } = await api.post('/subscriptions/checkout', { plan_id: plan.id, provider: 'razorpay' })
       if (data.subscription) return { activated: true }
+      const loaded = await loadRazorpayScript()
+      if (!loaded || !window.Razorpay) throw new Error('Could not load Razorpay checkout')
       return await new Promise<{ activated: boolean }>((resolve, reject) => {
         const Razorpay = window.Razorpay
         if (!Razorpay) {
@@ -99,7 +99,7 @@ export function SubscribePage() {
     },
     onSuccess: () => {
       toast.success('Subscription activated')
-      navigate('/dashboard', { replace: true })
+      navigate('/plan', { replace: true })
     },
     onError: (error: unknown) => {
       const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail

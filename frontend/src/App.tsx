@@ -22,6 +22,7 @@ const OnboardingPage = lazy(() => import('@/pages/onboarding/OnboardingPage').th
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })))
 const SubscribePage = lazy(() => import('@/pages/subscriptions/SubscribePage').then((m) => ({ default: m.SubscribePage })))
+const PlanPage = lazy(() => import('@/pages/subscriptions/PlanPage').then((m) => ({ default: m.PlanPage })))
 const PublicBillPage = lazy(() => import('@/pages/public/PublicBillPage').then((m) => ({ default: m.PublicBillPage })))
 const LandingPage = lazy(() => import('@/pages/public/LandingPage').then((m) => ({ default: m.LandingPage })))
 
@@ -83,6 +84,7 @@ export default function App() {
               <Route path="invoices" element={<InvoicesPage />} />
               <Route path="expenses" element={<ExpensesPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="plan" element={<PlanPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="admin" element={<AdminPage />} />
             </Route>
