@@ -12,6 +12,10 @@ async def ensure_default_plans() -> None:
     db = get_db()
     now = utc_now()
     if await db.subscription_plans.count_documents({}) > 0:
+        await db.subscription_plans.update_many(
+            {"is_single_subscribe": {"$exists": False}},
+            {"$set": {"is_single_subscribe": False, "updated_at": now}},
+        )
         await db.subscription_plans.update_one(
             {"code": "trial"},
             {"$set": {"is_active": False, "updated_at": now}},
@@ -34,6 +38,7 @@ async def ensure_default_plans() -> None:
                 "backup": False,
             },
             "is_active": True,
+            "is_single_subscribe": False,
         },
         {
             "code": "growth",
@@ -51,6 +56,7 @@ async def ensure_default_plans() -> None:
                 "backup": True,
             },
             "is_active": True,
+            "is_single_subscribe": False,
         },
         {
             "code": "annual-growth",
@@ -68,6 +74,7 @@ async def ensure_default_plans() -> None:
                 "backup": True,
             },
             "is_active": True,
+            "is_single_subscribe": False,
         },
     ]
     for plan in plans:
@@ -222,6 +229,13 @@ async def activate_subscription(
     plan = await get_plan(plan_id)
     if not plan or not plan.get("is_active", True):
         raise ValueError("Subscription plan is not available")
+    if plan.get("is_single_subscribe", False):
+        existing = await db.subscriptions.find_one({
+            "tenant_id": tenant_id,
+            "$or": [{"plan_id": plan["id"]}, {"plan_code": plan["code"]}],
+        })
+        if existing:
+            raise ValueError("This plan can only be subscribed once per shop.")
     now = utc_now()
     duration_minutes = int(plan.get("duration_minutes") or 0)
     duration_days = int(plan.get("duration_days") or 0)

@@ -32,6 +32,7 @@ class PlanPayload(BaseModel):
     features: list[str] = []
     limits: dict[str, Any] = {}
     is_active: bool = True
+    is_single_subscribe: bool = False
 
 
 class StatusPayload(BaseModel):

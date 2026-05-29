@@ -33,6 +33,7 @@ interface Plan {
   features: string[]
   limits: Record<string, unknown>
   is_active: boolean
+  is_single_subscribe?: boolean
 }
 
 const tabs: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
@@ -54,6 +55,7 @@ const emptyPlan = {
   monthly_invoices: '1000',
   analytics: true,
   backup: false,
+  is_single_subscribe: false,
 }
 
 export function AdminPage() {
@@ -99,6 +101,7 @@ export function AdminPage() {
         backup: planForm.backup,
       },
       is_active: true,
+      is_single_subscribe: planForm.is_single_subscribe,
       }
       return editingPlanId ? api.patch(`/admin/plans/${editingPlanId}`, payload) : api.post('/admin/plans', payload)
     },
@@ -200,6 +203,7 @@ export function AdminPage() {
       monthly_invoices: String(plan.limits?.monthly_invoices || ''),
       analytics: Boolean(plan.limits?.analytics),
       backup: Boolean(plan.limits?.backup),
+      is_single_subscribe: Boolean(plan.is_single_subscribe),
     })
     setTab('plans')
   }
@@ -315,6 +319,15 @@ export function AdminPage() {
                 <Input label="Minutes" type="number" value={planForm.duration_minutes} onChange={(e) => setPlanForm({ ...planForm, duration_minutes: e.target.value })} />
               </div>
               <Input label="Features" value={planForm.features} onChange={(e) => setPlanForm({ ...planForm, features: e.target.value })} />
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={planForm.is_single_subscribe}
+                  onChange={(e) => setPlanForm({ ...planForm, is_single_subscribe: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Allow only one subscription per shop
+              </label>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Products" type="number" value={planForm.products} onChange={(e) => setPlanForm({ ...planForm, products: e.target.value })} />
                 <Input label="Invoices/mo" type="number" value={planForm.monthly_invoices} onChange={(e) => setPlanForm({ ...planForm, monthly_invoices: e.target.value })} />
@@ -331,7 +344,7 @@ export function AdminPage() {
             {planRows.map((plan) => (
               <Card key={plan.id}>
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-bold">{plan.name}</h3><p className="text-sm text-slate-500">{plan.code} · {plan.plan_type}</p></div>
+                  <div><h3 className="font-bold">{plan.name}</h3><p className="text-sm text-slate-500">{plan.code} · {plan.plan_type} · {plan.is_single_subscribe ? 'single subscribe' : 'multi subscribe'}</p></div>
                   <span className={`rounded-full px-2 py-1 text-xs ${plan.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{plan.is_active ? 'active' : 'disabled'}</span>
                 </div>
                 <p className="mt-4 text-2xl font-bold">{formatCurrency(plan.price)}</p>
